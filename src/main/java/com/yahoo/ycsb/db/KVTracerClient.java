@@ -2,14 +2,11 @@ package site.ycsb.db;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.HashSet;
-import java.util.SortedMap;
 import java.util.Vector;
-import java.util.concurrent.TimeUnit;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -19,13 +16,13 @@ import java.io.BufferedWriter;
 import java.io.BufferedReader;
 import java.io.OutputStreamWriter;
 
-import site.ycsb.ByteArrayByteIterator;
+import site.ycsb.Status;
 import site.ycsb.ByteIterator;
 import site.ycsb.DB;
 import site.ycsb.DBException;
 
 /**
- * A database interface layer for generating key-value workload traces
+ * A database interface layer for generating key-value workload traces.
  */
 public class KVTracerClient extends DB {
 
@@ -42,74 +39,74 @@ public class KVTracerClient extends DB {
   private BufferedWriter mKeyWriter;
 
 
-  @Override
-    public void init() throws DBException {
-      mKeyMap.clear();
-      Properties props = getProperties();
-      String traceFileName = props.getProperty(TRACE_FILE_PROPERTY);
-      String keymapFileName = props.getProperty(KEYMAP_FILE_PROPERTY);
-      try {
-        if (traceFileName == null || traceFileName.isEmpty()) {
-          mOpWriter = new BufferedWriter(new OutputStreamWriter(System.out));
-        } else {
-          File traceFile = new File(traceFileName);
-          if (!traceFile.exists()) {
-            traceFile.createNewFile();
-          }
-          mOpWriter = new BufferedWriter(new FileWriter(traceFile));
+ @Override
+ public void init() throws DBException {
+    mKeyMap.clear();
+    Properties props = getProperties();
+    String traceFileName = props.getProperty(TRACE_FILE_PROPERTY);
+    String keymapFileName = props.getProperty(KEYMAP_FILE_PROPERTY);
+   try {
+      if (traceFileName == null || traceFileName.isEmpty()) {
+        mOpWriter = new BufferedWriter(new OutputStreamWriter(System.out));
+      } else {
+        File traceFile = new File(traceFileName);
+        if (!traceFile.exists()) {
+          traceFile.createNewFile();
         }
-        if (keymapFileName != null && !keymapFileName.isEmpty()) {
-          File keymapFile = new File(keymapFileName);
-          if (keymapFile.exists()) {
-            BufferedReader reader = new BufferedReader(new FileReader(keymapFile));
-            String keyline = null;
-            while ((keyline = reader.readLine()) != null) {
-              String[] parts = decodeKey(keyline);  
-              if (parts.length != 3) {
-                throw new DBException("invalid keyline " + keyline + " in keymap file");
-              }
-              String prefix = encodeKey(parts[0], parts[1], "");
-              HashSet<String> keys = mKeyMap.get(prefix);
-              if (keys == null) {
-                keys = new HashSet<String>();
-                mKeyMap.put(prefix, keys);
-              }
-              keys.add(keyline);
-            }
-            reader.close();
-          } else {
-            keymapFile.createNewFile();
-          }
-          mKeyWriter = new BufferedWriter(new FileWriter(keymapFile));
-        } else {
-          throw new DBException("kvtracer.keymapfile is not set");
-        }
-      } catch (IOException exception) {
-        throw new DBException(exception);
+        mOpWriter = new BufferedWriter(new FileWriter(traceFile));
       }
+      if (keymapFileName != null && !keymapFileName.isEmpty()) {
+        File keymapFile = new File(keymapFileName);
+        if (keymapFile.exists()) {
+          BufferedReader reader = new BufferedReader(new FileReader(keymapFile));
+          String keyline = null;
+          while ((keyline = reader.readLine()) != null) {
+            String[] parts = decodeKey(keyline);  
+            if (parts.length != 3) {
+              throw new DBException("invalid keyline " + keyline + " in keymap file");
+            }
+            String prefix = encodeKey(parts[0], parts[1], "");
+            HashSet<String> keys = mKeyMap.get(prefix);
+            if (keys == null) {
+              keys = new HashSet<String>();
+              mKeyMap.put(prefix, keys);
+            }
+            keys.add(keyline);
+          }
+           reader.close();
+        } else {
+           keymapFile.createNewFile();
+        }
+        mKeyWriter = new BufferedWriter(new FileWriter(keymapFile));
+      } else {
+        throw new DBException("kvtracer.keymapfile is not set");
+      }
+    } catch (IOException exception) {
+      throw new DBException(exception);
     }
-
-  @Override
+ }
+  
+ @Override
     public void cleanup() throws DBException {
-      try {
-        if (mOpWriter != null) {
+      try{
+        if(){
           mOpWriter.close();
         }
-        if (mKeyWriter != null) {
-          for (Map.Entry<String, HashSet<String>> entry : mKeyMap.entrySet()) {
+        if (mKeyWriter != null){
+          for (Map.Entry<String, HashSet<String>> entry : mKeyMap.entrySet()){
             HashSet<String> keys = entry.getValue();
-            for (String key : keys) {
+            for (String key : keys){
               mKeyWriter.write(key + "\n");
             }
-          }
+           }
           mKeyWriter.close();
-        }
-      } catch (IOException exception) {
+          }
+        }catch (IOException exception) {
         throw new DBException(exception);
       }
       mKeyMap.clear();
-    }
-
+   }
+      
   /**
    * Create a key from table name, key and field by escaping and concatenate them.
    */
@@ -118,7 +115,7 @@ public class KVTracerClient extends DB {
   }
 
   /**
-   * Decode an key that's encoded from encodeKey
+   * Decode an key that's encoded from encodeKey.
    */
   public static String[] decodeKey(String encKey) {
     ArrayList<String> parts = new ArrayList<String>();
@@ -129,7 +126,11 @@ public class KVTracerClient extends DB {
     int esclen = ESCAPE.length();
     int escesclen = 2 * esclen;
     boolean escape;
-    while (last < encKey.length() && (pos = encKey.indexOf(SEP, last)) >= 0) {
+    while (last < encKey.length()) {
+      pos = encKey.indexOf(SEP, last);
+      if (pos < 0) {
+        break;
+      }
       // System.out.println("pos=" + pos + ",begin=" + begin + ",last=" + last);
       escape = false;
       if (pos >= esclen) {
@@ -171,34 +172,35 @@ public class KVTracerClient extends DB {
   }
 
   @Override
-    public int read(String table, String key, Set<String> fields, HashMap<String, ByteIterator> result) {
-      try {
-        if (fields != null) {
-          for (String field:fields) {
-            String encKey = encodeKey(table, key, field);
-            mOpWriter.write("GET|" + encKey + "\n");
-          }
-        } else {
-          String prefix = encodeKey(table, key, "");
-          HashSet<String> keys = mKeyMap.get(prefix);
-          if (keys != null) {
-            for (String k:keys) {
-              mOpWriter.write("GET|" + k + "\n");
+    public Status read(String table, String key, Set<String> fields, Map<String, ByteIterator> result) {
+    try {
+      if (fields != null) {
+        for (String field:fields) {
+          String encKey = encodeKey(table, key, field);
+          mOpWriter.write("GET|" + encKey + "\n");
+        }
+      } else {
+        String prefix = encodeKey(table, key, "");
+        HashSet<String> keys = mKeyMap.get(prefix);
+        if (keys != null) {
+          for (String k:keys) {
+            mOpWriter.write("GET|" + k + "\n");
             }
           }
-        }
-        return OK;
-      } catch (IOException exception) {
-        exception.printStackTrace();
-        return ERROR;
       }
+      return Status.OK;
+    } catch (IOException exception) {
+      exception.printStackTrace();
+      return Status.ERROR;
+    }
     }
 
   @Override
-    public int scan(String table, String startkey, int recordcount, Set<String> fields, Vector<HashMap<String, ByteIterator>> result) {
-      System.err.println("scan operation is not supported");
-      return ERROR;
-    }
+    public Status scan(String table, String startkey, int recordcount,
+        Set<String> fields, Vector<HashMap<String, ByteIterator>> result) {
+        System.err.println("scan operation is not supported");
+        return Status.ERROR;
+  }
 
   @Override
     public int update(String table, String key, HashMap<String, ByteIterator> values) {
