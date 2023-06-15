@@ -89,7 +89,7 @@ public class KVTracerClient extends DB {
  @Override
     public void cleanup() throws DBException {
       try{
-        if(){
+        if(mOpWriter != null){
           mOpWriter.close();
         }
         if (mKeyWriter != null){
