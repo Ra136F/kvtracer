@@ -203,49 +203,49 @@ public class KVTracerClient extends DB {
   }
 
   @Override
-    public int update(String table, String key, HashMap<String, ByteIterator> values) {
-      try {
-        for (Map.Entry<String, ByteIterator> entry : values.entrySet()) {
-          String prefix = encodeKey(table, key, "");
-          String encKey = encodeKey(table, key, entry.getKey());
-          HashSet<String> keys = mKeyMap.get(prefix);
-          if (keys == null) {
-            keys = new HashSet<String>();
-            mKeyMap.put(prefix, keys);
-          }
-          keys.add(encKey);
-          String value = entry.getValue().toString();
-          mOpWriter.write("UPDATE|" + encKey + "|" + value + "\n");
+   public Status update(String table, String key, Map<String, ByteIterator> values) {
+    try {
+      for (Map.Entry<String, ByteIterator> entry : values.entrySet()) {
+        String prefix = encodeKey(table, key, "");
+        String encKey = encodeKey(table, key, entry.getKey());
+        HashSet<String> keys = mKeyMap.get(prefix);
+        if (keys == null) {
+          keys = new HashSet<String>();
+          mKeyMap.put(prefix, keys);
         }
-        return OK;
-      } catch (IOException exception) {
-        exception.printStackTrace();
-        return ERROR;
+        keys.add(encKey);
+        String value = entry.getValue().toString();
+        mOpWriter.write("UPDATE|" + encKey + "|" + value + "\n");
       }
+      return Status.OK;
+    } catch (IOException exception) {
+      exception.printStackTrace();
+      return Status.ERROR;
     }
+   }
 
   @Override
-    public int insert(String table, String key, HashMap<String, ByteIterator> values) {
-      return update(table, key, values);
-    }
+    public Status insert(String table, String key, Map<String, ByteIterator> values) {
+    return update(table, key, values);
+  }
 
   @Override
-    public int delete(String table, String key) {
-      String prefix = encodeKey(table, key, "");
-      HashSet<String> keys = mKeyMap.get(prefix);
-      if (keys == null) {
-        System.err.println("no keys to delete for <" + table + "," + key + ">");
-        return ERROR;
-      }
-      try {
-        for (String k:keys) {
-          String encKey = encodeKey(table, key, k);
-          mOpWriter.write("DELETE|" + encKey + "\n");
-        }
-      } catch (IOException exception) {
-        exception.printStackTrace();
-        return ERROR;
-      }
-      return OK;
+    public Status delete(String table, String key) {
+    String prefix = encodeKey(table, key, "");
+    HashSet<String> keys = mKeyMap.get(prefix);
+    if (keys == null) {
+      System.err.println("no keys to delete for <" + table + "," + key + ">");
+      return Status.ERROR;
     }
+    try {
+      for (String k:keys) {
+        String encKey = encodeKey(table, key, k);
+        mOpWriter.write("DELETE|" + encKey + "\n");
+      }
+      } catch (IOException exception) {
+      exception.printStackTrace();
+      return Status.ERROR;
+    }
+      return Status.OK;
+  }
 }
