@@ -38,6 +38,69 @@ public class KVTracerClient extends DB {
     private BufferedWriter mOpWriter;
     private BufferedWriter mKeyWriter;
 
+    /**
+     * Create a key from table name, key and field by escaping and concatenate them.
+     */
+    public static String encodeKey(String table, String key, String field) {
+        return escape(table) + SEP + escape(key) + SEP + escape(field);
+    }
+
+    /**
+     * Decode an key that's encoded from encodeKey.
+     */
+    public static String[] decodeKey(String encKey) {
+        ArrayList<String> parts = new ArrayList<String>();
+        int pos = -1;
+        int begin = 0;
+        int last = 0;
+        int inc = SEP.length();
+        int esclen = ESCAPE.length();
+        int escesclen = 2 * esclen;
+        boolean escape;
+        while (last < encKey.length()) {
+            pos = encKey.indexOf(SEP, last);
+            if (pos < 0) {
+                break;
+            }
+            // System.out.println("pos=" + pos + ",begin=" + begin + ",last=" + last);
+            escape = false;
+            if (pos >= esclen) {
+                if (encKey.substring(pos - esclen, pos).equals(ESCAPE)) {
+                    // if the separator is a \:
+                    if (pos >= escesclen) {
+                        if (!encKey.substring(pos - escesclen, pos - esclen).equals(ESCAPE)) {
+                            //  and not \\:, then this is an escaped separator, not real separator
+                            escape = true;
+                        }
+                    } else {
+                        escape = true;
+                    }
+                }
+                // this is an escaped separator, skip
+            }
+            if (!escape) {
+                String part = encKey.substring(begin, pos);
+                parts.add(unescape(part));
+                begin = pos + inc;
+            }
+            last = pos + inc;
+        }
+        if (begin < encKey.length()) {
+            String part = encKey.substring(begin);
+            parts.add(unescape(part));
+        }
+        return parts.toArray(new String[parts.size()]);
+    }
+
+    public static String escape(String str) {
+        String s1 = str.replace(ESCAPE, ESCAPE + ESCAPE);
+        return s1.replace(SEP, ESCAPE + SEP);
+    }
+
+    public static String unescape(String encStr) {
+        String s1 = encStr.replace(ESCAPE + SEP, SEP);
+        return s1.replace(ESCAPE + ESCAPE, ESCAPE);
+    }
 
     @Override
     public void init() throws DBException {
@@ -107,75 +170,11 @@ public class KVTracerClient extends DB {
         mKeyMap.clear();
     }
 
-    /**
-     * Create a key from table name, key and field by escaping and concatenate them.
-     */
-    public static String encodeKey(String table, String key, String field) {
-        return escape(table) + SEP + escape(key) + SEP + escape(field);
-    }
-
-    /**
-     * Decode an key that's encoded from encodeKey.
-     */
-    public static String[] decodeKey(String encKey) {
-        ArrayList<String> parts = new ArrayList<String>();
-        int pos = -1;
-        int begin = 0;
-        int last = 0;
-        int inc = SEP.length();
-        int esclen = ESCAPE.length();
-        int escesclen = 2 * esclen;
-        boolean escape;
-        while (last < encKey.length()) {
-            pos = encKey.indexOf(SEP, last);
-            if (pos < 0) {
-                break;
-            }
-            // System.out.println("pos=" + pos + ",begin=" + begin + ",last=" + last);
-            escape = false;
-            if (pos >= esclen) {
-                if (encKey.substring(pos - esclen, pos).equals(ESCAPE)) {
-                    // if the separator is a \:
-                    if (pos >= escesclen) {
-                        if (!encKey.substring(pos - escesclen, pos - esclen).equals(ESCAPE)) {
-                            //  and not \\:, then this is an escaped separator, not real separator
-                            escape = true;
-                        }
-                    } else {
-                        escape = true;
-                    }
-                }
-                // this is an escaped separator, skip
-            }
-            if (!escape) {
-                String part = encKey.substring(begin, pos);
-                parts.add(unescape(part));
-                begin = pos + inc;
-            }
-            last = pos + inc;
-        }
-        if (begin < encKey.length()) {
-            String part = encKey.substring(begin);
-            parts.add(unescape(part));
-        }
-        return parts.toArray(new String[parts.size()]);
-    }
-
-    public static String escape(String str) {
-        String s1 = str.replace(ESCAPE, ESCAPE + ESCAPE);
-        return s1.replace(SEP, ESCAPE + SEP);
-    }
-
-    public static String unescape(String encStr) {
-        String s1 = encStr.replace(ESCAPE + SEP, SEP);
-        return s1.replace(ESCAPE + ESCAPE, ESCAPE);
-    }
-
     @Override
     public Status read(String table, String key, Set<String> fields, Map<String, ByteIterator> result) {
         try {
             if (fields != null) {
-                for (String field:fields) {
+                for (String field : fields) {
                     String encKey = encodeKey(table, key, field);
                     mOpWriter.write("GET|" + encKey + "\n");
                 }
@@ -183,7 +182,7 @@ public class KVTracerClient extends DB {
                 String prefix = encodeKey(table, key, "");
                 HashSet<String> keys = mKeyMap.get(prefix);
                 if (keys != null) {
-                    for (String k:keys) {
+                    for (String k : keys) {
                         mOpWriter.write("GET|" + k + "\n");
                     }
                 }
@@ -238,7 +237,7 @@ public class KVTracerClient extends DB {
             return Status.ERROR;
         }
         try {
-            for (String k:keys) {
+            for (String k : keys) {
                 String encKey = encodeKey(table, key, k);
                 mOpWriter.write("DELETE|" + encKey + "\n");
             }
